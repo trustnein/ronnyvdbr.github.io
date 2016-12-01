@@ -20,7 +20,7 @@ function ReturnStatus(message) {
 }
 function ReturnProgress() {
     
-	document.getElementById('status').innerHTML = 'Restoring back-up and rebooting Raspberry Pi, please wait for the login screen...';
+	document.getElementById('status').innerHTML = 'Updating Applications and rebooting Raspberry Pi, please wait for the login screen...';
 	document.getElementById('progress').innerHTML = '<img src="images/ProgressIndicator.GIF" width="100" height="15"  alt="">';
 }
 
@@ -30,7 +30,7 @@ function GoToHome() {
 }
 </script>
 <?php include 'functions.php';?>
-<?php logmessage("Loading page Maintenance-RestoreConfig.php");?>
+<?php logmessage("Loading page Maintenance-UpdateApps.php");?>
 <!-- InstanceEndEditable --> 
 </head>
  
@@ -45,7 +45,6 @@ function GoToHome() {
       <span id="title"><h1>Raspberry WiFi Router</h1></span>
     </div>
   </header>
-
 
   <div class="sidebar1">
     <nav>
@@ -105,24 +104,24 @@ function GoToHome() {
   <article class="content">
     <!-- InstanceBeginEditable name="article" -->
   <div id="ContentTitle">
-  <span>Restore Configuration</span></div>
+  <span>Update Applications</span></div>
       
   <div id="ContentArticle">
-   <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]);?>" method="post" enctype="multipart/form-data" id="restore">
+   <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]);?>" method="post" enctype="multipart/form-data" id="updateApps">
     <fieldset><legend>Upload configuration</legend>
       <table width="100%" border="0">
         <tbody>
           <tr>
             <td align="left">
               
-              Select back-up to upload:          <br>
+              Select update file to upload:          <br>
               </td>
           </tr>
           <tr>
-            <td height="48" align="center"><input name="fileToUpload" type="file" id="fileToUpload" form="restore" style="width: 100%"></td>
+            <td height="48" align="center"><input name="fileToUpload" type="file" id="fileToUpload" form="updateApps" style="width: 100%"></td>
             </tr>
           <tr>
-            <td align="left"><input name="submit" type="submit" form="restore" value="Upload back-up" id="restore2"></td>
+            <td align="left"><input name="submit" type="submit" form="updateApps" value="Upload update image" id="updateApp2"></td>
           </tr>
           <tr>
             <td align="center">&nbsp;</td>
@@ -156,6 +155,7 @@ function GoToHome() {
 
   <footer>
   <p>Designed by Ronny Van den Broeck </p>
+  <p>Added by neinnil </p>
   <!-- InstanceBeginEditable name="footer" -->
 
   
@@ -170,104 +170,92 @@ function GoToHome() {
 
   if($_SERVER['REQUEST_METHOD'] == 'POST' && !empty($_POST['submit'])) {
 
-	$target_dir = "temp/";
-	$target_file = $target_dir . basename($_FILES["fileToUpload"]["name"]);
-	$uploadOk = 1;
-	$imageFileType = pathinfo($target_file,PATHINFO_EXTENSION);
-	
-	// Check if file already exists
-	if (file_exists($target_file)) {
-		echo "<script>ReturnStatus('Sorry, file already exists.');</script>";
-		logmessage("Backup not uploaded, file already exists.");
-		$uploadOk = 0;
-	}
-	
-	// Check file size
-	if ($_FILES["fileToUpload"]["size"] > 500000) {
-		echo "<script>ReturnStatus('Sorry, your file is too large.');</script>";
-		logmessage("Backup not uploaded, file is too large.");
-		$uploadOk = 0;
-	}
-	
-	// Allow certain file formats
-	if($imageFileType != "tar") {
-		echo "<script>ReturnStatus('Sorry, only tar files are allowed.');</script>";
-		logmessage("Backup not uploaded, only tar files are allowed.");
-		$uploadOk = 0;
-	}
-	
-	// Check if $uploadOk is set to 0 by an error
-	if ($uploadOk !== 0) {
-		if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $target_file)) {
-			
-			//upload succeeded
-			echo "<script>ReturnProgress();</script>";
-			echo "<script>setTimeout(GoToHome, 60000);</script>";
-			flush();
-			
-			//extracting file (restoring backup)
-			logmessage("Mounting boot partition read-write.");
-			shell_exec("sudo mount -o rw,relatime,fmask=0000,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,errors=remount-ro /dev/mmcblk0p1 /boot 2>&1 | sudo tee --append /var/log/raspberrywap.log");			
-		  
-			logmessage("Backup file /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " has been uploaded.");
-			logmessage("Extracting tar archive /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]));
-			shell_exec("sudo tar -xf /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " -C / 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			
-			logmessage("Mounting boot partition read-only.");
-			shell_exec("sudo mount -o ro,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,errors=remount-ro /dev/mmcblk0p1 /boot 2>&1 | sudo tee --append /var/log/raspberrywap.log");			
-		  
-			// restoring mysql databases
-			logmessage("Restoring mysql database: login");
-			shell_exec("sudo mysql --host=localhost --user=root --password=raspberry login < /tmp/login.db 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			logmessage("Restoring mysql database: radius");
-			shell_exec("sudo mysql --host=localhost --user=root --password=raspberry radius < /tmp/radius.db 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			
-			//reading service states from back-up file.
-			logmessage("Reading service states from back-up.");
-			$servicestates = parse_ini_file("/home/pi/Raspberry-Wifi-Router/www/temp/servicestates.ini");
-			
-			//restoring service states
-			logmessage("Restoring service states from back-up.");
-			
-			if($servicestates['ntp.service'] == "enabled") {
-			  shell_exec("sudo systemctl enable ntp.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			else {
-			  shell_exec("sudo systemctl disable ntp.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			if($servicestates['dhcpcd.service'] == "enabled") {
-			  shell_exec("sudo systemctl enable dhcpcd.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			else {
-			  shell_exec("sudo systemctl disable dhcpcd.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			if($servicestates['hostapd.service'] == "enabled") {
-			  shell_exec("sudo systemctl enable hostapd.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			else {
-			  shell_exec("sudo systemctl disable hostapd.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			if($servicestates['openvpn.service'] == "enabled") {
-			  shell_exec("sudo systemctl enable openvpn.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			else {
-			  shell_exec("sudo systemctl disable openvpn.service 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			}
-			
-			//removing back-up file
-			logmessage("Removing back-up file.");
-			shell_exec("sudo rm -fv /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-			
-			session_start();
-			session_destroy();
-	
-			logmessage("Reboot initiated.");
-			shell_exec("sudo reboot");
+	  $target_dir = "temp/";
+	  $target_file = $target_dir . basename($_FILES["fileToUpload"]["name"]);
+	  $uploadOk = 1;
+	  $imageFileType = pathinfo($target_file,PATHINFO_EXTENSION);
 
-			
+	  // Check if file already exists
+	  if (file_exists($target_file)) {
+		  echo "<script>ReturnStatus('Sorry, file already exists.');</script>";
+		  logmessage("Backup not uploaded, file already exists.");
+		  $uploadOk = 0;
+	  }
+
+	  // Check file size
+	  if ($_FILES["fileToUpload"]["size"] > 64000000) {
+		  echo "<script>ReturnStatus('Sorry, your file is too large.');</script>";
+		  logmessage("Backup not uploaded, file is too large.");
+		  $uploadOk = 0;
+	  }
+
+	  // Allow certain file formats
+	  if($imageFileType != "tar") {
+		  echo "<script>ReturnStatus('Sorry, only tar files are allowed.');</script>";
+		  logmessage("Backup not uploaded, only tar files are allowed.");
+		  $uploadOk = 0;
+	  }
+
+	  // Check if $uploadOk is set to 0 by an error
+	  if ($uploadOk !== 0) {
+		  if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $target_file)) {
+
+			  //upload succeeded
+			  echo "<script>ReturnProgress();</script>";
+			  echo "<script>setTimeout(GoToHome, 60000);</script>";
+			  flush();
+
+			  //extracting file (update image)
+			  logmessage("make temporary updating directory.");
+		          shell_exec("sudo mkdir -p temp/updateApps");
+			  logmessage("Extracting file (updating application)"); 
+			  shell_exec("sudo tar -xf ". $target_file . " -C temp/updateApps 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+
+// find update.sh 
+			  $updateScriptOk = 0;
+		          $updateTarget = "temp/updateApps";
+			  $updateScript = $updateTarget."/update.sh";
+			  logmessage("updateScript: ".$updateScript);
+			  if (file_exists($updateScript)){
+				logmessage ("Update Script: ". $updateScript);
+				$updateScriptOk = 1;
+			  } 
+			  if ($updateScriptOk == 0) {
+				  $targetName = basename($_FILES["fileToUpload"]["name"], ".tar");
+				  $updateScript = $updateTarget."/".$targetName."/update.sh";
+				  logmessage("updateScript: ".$updateScript);
+				  if (file_exists($updateScript)) {
+					logmessage ("Update Script: ". $updateScript);
+					$updateScriptOk = 1;
+				  }
+			  }
+			  if ($updateScriptOk !== 0) {
+				  // run update script.
+				  logmessage("run update script(update.sh).");
+				  shell_exec("sudo sh ".$updateScript." 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+				  //removing back-up file
+				  logmessage("Removing update file.");
+				  shell_exec("sudo rm -fv /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+				  logmessage("Removing update directory.");
+				  shell_exec("sudo rm -rf /home/pi/Raspberry-Wifi-Router/www/temp/updateApps 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+
+				  session_start();
+				  session_destroy();
+
+				  logmessage("Reboot initiated.");
+				  shell_exec("sudo reboot");
+			  } else {
+				  echo "<script>ReturnStatus('Sorry, file is not exists.');</script>";
+				  logmessage("There is no update.sh in update image.");
+				// logmessage("Removing update file.");
+				// shell_exec("sudo rm -fv /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+				 // logmessage("Removing temporary updating directory.");
+				  //shell_exec("sudo rm -rf /home/pi/Raspberry-Wifi-Router/www/temp/updateApps 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+			  }
 			
 		} else {
 		  echo "<script>ReturnStatus('Sorry, could not upload backup file, error unspecified, giving up.');</script>";
+		  print_r ($_FILES);
 		}
 	}
   }
