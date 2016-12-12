@@ -230,9 +230,11 @@ function GoToHome() {
 				  }
 			  }
 			  if ($updateScriptOk !== 0) {
+				  // convert file format (dos2unix)
+				  shell_exec("dos2unix ". $updateScript." 2>&1 | sudo tee --append /var/log/raspberrywap.log");
 				  // run update script.
 				  logmessage("run update script(update.sh).");
-				  shell_exec("sudo sh ".$updateScript." 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+				  shell_exec("cd ".dirname($updateScript)."; sudo sh ./update.sh 2>&1 | sudo tee --append /var/log/raspberrywap.log");
 				  //removing back-up file
 				  logmessage("Removing update file.");
 				  shell_exec("sudo rm -fv /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " 2>&1 | sudo tee --append /var/log/raspberrywap.log");
@@ -247,10 +249,10 @@ function GoToHome() {
 			  } else {
 				  echo "<script>ReturnStatus('Sorry, file is not exists.');</script>";
 				  logmessage("There is no update.sh in update image.");
-				// logmessage("Removing update file.");
-				// shell_exec("sudo rm -fv /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " 2>&1 | sudo tee --append /var/log/raspberrywap.log");
-				 // logmessage("Removing temporary updating directory.");
-				  //shell_exec("sudo rm -rf /home/pi/Raspberry-Wifi-Router/www/temp/updateApps 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+				  logmessage("Removing update file.");
+				  shell_exec("sudo rm -fv /home/pi/Raspberry-Wifi-Router/www/temp/" . basename($_FILES["fileToUpload"]["name"]) . " 2>&1 | sudo tee --append /var/log/raspberrywap.log");
+				  logmessage("Removing temporary updating directory.");
+				  shell_exec("sudo rm -rf /home/pi/Raspberry-Wifi-Router/www/temp/updateApps 2>&1 | sudo tee --append /var/log/raspberrywap.log");
 			  }
 			
 		} else {
